@@ -2,6 +2,7 @@ import React, { useRef, useEffect } from 'react';
 import { Icon } from './Icon';
 import '../App.css';
 import { FileEntry } from './Sidebar';
+import { invoke } from '@tauri-apps/api/core';
 
 interface FileContextMenuProps {
     x: number;
@@ -75,6 +76,29 @@ export const FileContextMenu: React.FC<FileContextMenuProps> = ({
                 Delete
                 <span className="context-menu-shortcut">Delete</span>
             </div>
+            <div className="context-menu-item" onClick={() => { invoke('open_in_external', { path: file.path }); onClose(); }}>
+                <Icon name="folder-open" size={14} />
+                Show in Explorer
+            </div>
+            <div className="context-menu-item" onClick={() => { invoke('open_terminal', { path: file.path }); onClose(); }}>
+                <Icon name="terminal" size={14} />
+                Open in Terminal
+            </div>
+            <div className="context-menu-divider" />
+
+            <div className="context-menu-item" onClick={() => { invoke('show_open_dialog').then(result => console.log('Dialog result:', result)).catch(err => console.error('Dialog error:', err)); onClose(); }}>
+                <Icon name="folder-open" size={14} />
+                Test Open Dialog
+            </div>
+            <div className="context-menu-item" onClick={() => { invoke('show_notification', { title: 'Test', message: 'Notification test' }).then(() => console.log('Notification sent')).catch(err => console.error('Notification error:', err)); onClose(); }}>
+                <Icon name="bell" size={14} />
+                Test Notification
+            </div>
+            <div className="context-menu-item" onClick={() => { invoke('get_file_metadata', { path: file.path }).then(metadata => console.log('Metadata:', metadata)).catch(err => console.error('Metadata error:', err)); onClose(); }}>
+                <Icon name="info" size={14} />
+                Test Metadata
+            </div>
+            <div className="context-menu-divider" />
         </div>
     );
 };

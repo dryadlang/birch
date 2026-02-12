@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Icon } from './Icon';
+import { invoke } from '@tauri-apps/api/core';
 import '../App.css';
 
 interface NewProjectWizardProps {
@@ -9,16 +10,35 @@ interface NewProjectWizardProps {
 }
 
 const templates = [
-    { id: 'console', name: 'Console Application', icon: 'terminal-2', desc: 'Simple command-line application' },
-    { id: 'library', name: 'Dryad Library', icon: 'books', desc: 'Reusable package for other projects' },
-    { id: 'network', name: 'Network Service', icon: 'server', desc: 'Backend service with HTTP/TCP capabilities' },
-    { id: 'web', name: 'Web Assembly', icon: 'browser', desc: 'WASM module for web applications' },
+    { id: 'dryad-project', name: 'Dryad Project', icon: 'terminal-2', desc: 'New Dryad console application' },
+    { id: 'dryad-library', name: 'Dryad Library', icon: 'books', desc: 'New Dryad library package' },
+    { id: 'network-service', name: 'Network Service', icon: 'server', desc: 'High-performance microservice' },
+    { id: 'web-assembly', name: 'Web Assembly', icon: 'browser', desc: 'Dryad module for web applications' },
 ];
 
 export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({ isOpen, onClose, onCreate }) => {
     const [name, setName] = useState('untitled-project');
-    const [location, setLocation] = useState('/home/user/projects');
-    const [selectedTemplate, setSelectedTemplate] = useState('console');
+    const [location, setLocation] = useState('C:/Users/Pedro Jesus/Documents/BirchProjects');
+    const [selectedTemplate, setSelectedTemplate] = useState('dryad-project');
+    const [isCreating, setIsCreating] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const handleCreate = async () => {
+        setIsCreating(true);
+        setError(null);
+        try {
+            if (selectedTemplate.startsWith('dryad-')) {
+                const type = selectedTemplate.split('-')[1];
+                await invoke('create_dryad_project', { name, location, template: type });
+            }
+            onCreate(name, location, selectedTemplate);
+            onClose();
+        } catch (e: any) {
+            setError(e.toString());
+        } finally {
+            setIsCreating(false);
+        }
+    };
 
     if (!isOpen) return null;
 
@@ -42,6 +62,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({ isOpen, onCl
                             value={name}
                             onChange={e => setName(e.target.value)}
                             placeholder="my-awesome-project"
+                            disabled={isCreating}
                         />
                     </div>
                     <div className="wizard-field">
@@ -51,8 +72,9 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({ isOpen, onCl
                                 type="text"
                                 value={location}
                                 onChange={e => setLocation(e.target.value)}
+                                disabled={isCreating}
                             />
-                            <button className="wizard-btn wizard-btn-secondary" title="Browse...">
+                            <button className="wizard-btn wizard-btn-secondary" title="Browse..." disabled={isCreating}>
                                 <Icon name="folder" size={16} />
                             </button>
                         </div>
@@ -64,7 +86,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({ isOpen, onCl
                                 <div
                                     key={t.id}
                                     className={`wizard-template ${selectedTemplate === t.id ? 'selected' : ''}`}
-                                    onClick={() => setSelectedTemplate(t.id)}
+                                    onClick={() => !isCreating && setSelectedTemplate(t.id)}
                                 >
                                     <div className="wizard-template-icon">
                                         <Icon name={t.icon} size={24} />
@@ -75,17 +97,18 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({ isOpen, onCl
                             ))}
                         </div>
                     </div>
+                    {error && <div style={{ color: 'var(--text-accent)', fontSize: '12px', marginTop: '12px' }}>{error}</div>}
                 </div>
                 <div className="wizard-footer">
-                    <button className="wizard-btn wizard-btn-secondary" onClick={onClose}>
+                    <button className="wizard-btn wizard-btn-secondary" onClick={onClose} disabled={isCreating}>
                         Cancel
                     </button>
                     <button
                         className="wizard-btn wizard-btn-primary"
-                        onClick={() => onCreate(name, location, selectedTemplate)}
-                        disabled={!name || !location}
+                        onClick={handleCreate}
+                        disabled={!name || !location || isCreating}
                     >
-                        Create Project
+                        {isCreating ? 'Creating...' : 'Create Project'}
                     </button>
                 </div>
             </div>

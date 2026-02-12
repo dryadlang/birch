@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Icon } from './Icon';
-import { VariablesPanel } from './debug/VariablesPanel';
-import { BreakpointsPanel } from './debug/BreakpointsPanel';
-import { CallStackPanel } from './debug/CallStackPanel';
+import BreakpointsPanel from './debug/BreakpointsPanel';
+import VariablesPanel from './debug/VariablesPanel';
+import CallStackPanel from './debug/CallStackPanel';
 import { ProcessPanel } from './debug/ProcessPanel';
 import '../App.css';
 

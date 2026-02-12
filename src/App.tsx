@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useEffect, useState, useCallback } from 'react';
 import "./App.css";
 import { invoke } from "@tauri-apps/api/core";
 import { ActivityBar } from "./components/ActivityBar";
@@ -82,7 +82,11 @@ function App() {
   useEffect(() => {
     const saved = localStorage.getItem('birch-settings');
     if (saved) {
-      setSettings({ ...defaultSettings, ...JSON.parse(saved) });
+      const parsed = JSON.parse(saved);
+      setSettings({ ...defaultSettings, ...parsed });
+      document.body.setAttribute('data-theme', parsed.theme || 'dark');
+    } else {
+      document.body.setAttribute('data-theme', 'dark');
     }
   }, []);
 
@@ -90,6 +94,7 @@ function App() {
   const handleSettingsChange = (newSettings: Settings) => {
     setSettings(newSettings);
     localStorage.setItem('birch-settings', JSON.stringify(newSettings));
+    document.body.setAttribute('data-theme', newSettings.theme);
   };
 
   // Load root directory
@@ -225,11 +230,12 @@ function App() {
   const handleEditorChange = (value: string | undefined) => {
     if (!activeTab || value === undefined) return;
 
-    setFileContents(prev => new Map(prev).set(activeTab, value));
-    setDirtyFiles(prev => new Set(prev).add(activeTab));
-    setOpenTabs(prev => prev.map(t =>
-      t.path === activeTab ? { ...t, isDirty: true } : t
-    ));
+    setFileContents((prev) => new Map(prev).set(activeTab, value));
+    setDirtyFiles((prev) => new Set(prev).add(activeTab));
+    setOpenTabs((prev) =>
+      prev.map((t) => (t.path === activeTab ? { ...t, isDirty: true } : t))
+    );
+    setUnsavedChanges(true); // Marcar alterações como não salvas
   };
 
   const handleSave = useCallback(async () => {
@@ -286,15 +292,19 @@ function App() {
       }
       if (e.ctrlKey && e.key === ',') {
         e.preventDefault();
-        setPanelVisible(v => !v);
+        setSettingsOpen(true);
       }
       if (e.ctrlKey && e.key === 'b') {
         e.preventDefault();
         setSidebarVisible(v => !v);
       }
-      if (e.ctrlKey && e.key === '.') {
+      if (e.ctrlKey && e.key === 'p') {
         e.preventDefault();
-        setSettingsOpen(true);
+        setActiveView('explorer');
+      }
+      if (e.ctrlKey && e.shiftKey && e.key === 'F') {
+        e.preventDefault();
+        setActiveView('search');
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -342,6 +352,38 @@ function App() {
     }
   };
 
+  // Auto-Save State
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(settings.autoSave);
+  const [autoSaveDelay, setAutoSaveDelay] = useState(settings.autoSaveDelay);
+  const [unsavedChanges, setUnsavedChanges] = useState(false);
+
+  useEffect(() => {
+    if (autoSaveEnabled) {
+      const interval = setInterval(() => {
+        if (unsavedChanges) {
+          console.log('Auto-saving changes...');
+          if (activeTab) {
+            const content = fileContents.get(activeTab);
+            if (content !== undefined) {
+              invoke('write_file', { path: activeTab, content })
+                .then(() => {
+                  console.log('File auto-saved:', activeTab);
+                  setUnsavedChanges(false);
+                })
+                .catch((err) => console.error('Auto-save failed:', err));
+            }
+          }
+        }
+      }, autoSaveDelay);
+
+      return () => clearInterval(interval);
+    }
+  }, [autoSaveEnabled, autoSaveDelay, unsavedChanges, activeTab, fileContents]);
+
+  const simulateChange = () => {
+    setUnsavedChanges(true);
+  };
+
   return (
     <div className="app-container" data-theme={settings.theme}>
       <div className="main-content">
@@ -374,6 +416,7 @@ function App() {
                 activeFile={activeTab}
                 content={activeContent}
                 onChange={handleEditorChange}
+                settings={settings}
               />
             </>
           )}
@@ -415,6 +458,24 @@ function App() {
         settings={settings}
         onSettingsChange={handleSettingsChange}
       />
+
+      <button onClick={simulateChange}>Simulate Change</button>
+      <label>
+        Auto-Save Enabled:
+        <input
+          type="checkbox"
+          checked={autoSaveEnabled}
+          onChange={(e) => setAutoSaveEnabled(e.target.checked)}
+        />
+      </label>
+      <label>
+        Auto-Save Delay (ms):
+        <input
+          type="number"
+          value={autoSaveDelay}
+          onChange={(e) => setAutoSaveDelay(Number(e.target.value))}
+        />
+      </label>
     </div>
   );
 }

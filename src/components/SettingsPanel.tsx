@@ -22,10 +22,9 @@ interface SettingsPanelProps {
 }
 
 const themes = [
-    { id: 'dark', name: 'Dark (Default)' },
-    { id: 'light', name: 'Light' },
-    { id: 'monokai', name: 'Monokai' },
-    { id: 'solarized', name: 'Solarized Dark' },
+    { id: 'dark', name: 'JetBrains Dark' },
+    { id: 'light', name: 'JetBrains Light' },
+    { id: 'birch', name: 'Birch Unique' },
 ];
 
 const fonts = [

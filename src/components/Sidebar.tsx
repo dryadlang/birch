@@ -189,6 +189,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
         setContextMenu({ x: e.clientX, y: e.clientY, file });
     };
 
+    const handleNewFile = (path: string) => {
+        console.log('Creating new file at', path);
+        // Implement logic to create a new file in the specified path
+    };
+
+    const handleNewFolder = (path: string) => {
+        console.log('Creating new folder at', path);
+        // Implement logic to create a new folder in the specified path
+    };
+
+    const handleRename = (path: string) => {
+        console.log('Renaming file/folder at', path);
+        // Implement logic to rename the specified file or folder
+    };
+
+    const handleDelete = (path: string) => {
+        console.log('Deleting file/folder at', path);
+        // Implement logic to delete the specified file or folder
+    };
+
     return (
         <aside className="sidebar" style={{ width: `${width}px` }}>
             <div className="sidebar-header">
@@ -217,10 +237,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     y={contextMenu.y}
                     file={contextMenu.file}
                     onClose={() => setContextMenu(null)}
-                    onRename={(path) => console.log('Rename', path)}
-                    onDelete={(path) => console.log('Delete', path)}
-                    onNewFile={(path) => console.log('New File', path)}
-                    onNewFolder={(path) => console.log('New Folder', path)}
+                    onRename={handleRename}
+                    onDelete={handleDelete}
+                    onNewFile={handleNewFile}
+                    onNewFolder={handleNewFolder}
                     onCopyPath={(path) => {
                         navigator.clipboard.writeText(path);
                         console.log('Copied path', path);
