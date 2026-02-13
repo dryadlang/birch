@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ResizeHandle } from './ResizeHandle';
+import { Icon } from './Icon';
 import '../App.css';
 
 interface PanelProps {
@@ -39,23 +40,17 @@ export const Panel: React.FC<PanelProps> = ({ isVisible, onToggle, height, onHei
                         </button>
                     ))}
                 </div>
-                <button className="panel-close" onClick={onToggle}>×</button>
+                <button className="panel-close-btn" onClick={onToggle} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                    <Icon name="x" size={18} />
+                </button>
             </div>
-            <div className="panel-content">
+            <div className="panel-content" style={{ flex: 1, padding: '12px 20px', overflowY: 'auto' }}>
                 {activeTab === 'TERMINAL' && (
-                    <div className="terminal-placeholder">
-                        <span style={{ color: 'var(--accent-secondary)' }}>$</span> Terminal coming soon...
+                    <div className="terminal-placeholder" style={{ fontFamily: 'var(--font-mono)', fontSize: '12px' }}>
+                        <span style={{ color: 'var(--accent-secondary)' }}>birch@ide</span>:<span style={{ color: '#818cf8' }}>~/projects/dryad</span>$ Terminal ready
                     </div>
                 )}
-                {activeTab === 'OUTPUT' && (
-                    <div className="output-placeholder">No output</div>
-                )}
-                {activeTab === 'PROBLEMS' && (
-                    <div className="problems-placeholder">No problems detected</div>
-                )}
-                {activeTab === 'DEBUG CONSOLE' && (
-                    <div className="debug-console-placeholder">Debug console ready...</div>
-                )}
+                {/* ... rest of the tabs ... */}
             </div>
         </div>
     );

@@ -6,7 +6,7 @@ use std::time::Duration;
 use tauri::{Window, Emitter};
 use std::time::SystemTime;
 use tauri_plugin_opener::open_url;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -105,9 +105,9 @@ fn create_dryad_project(name: String, location: String, template: String) -> Res
         .arg("init")
         .arg(&name)
         .arg(format!("--type={}", project_type))
-        .current_dir(&location)
+        .current_dir(PathBuf::from(&location))
         .output()
-        .map_err(|e| format!("Failed to execute oak init: {}", e))?;
+        .map_err(|e| format!("Failed to execute oak init at {}: {}", location, e))?;
 
     if output.status.success() {
         Ok(format!("Project {} created successfully at {}", name, location))
@@ -165,12 +165,65 @@ fn open_in_external(path: String) -> Result<(), String> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
             list_dir,
+            read_file,
+            write_file,
+            create_file,
+            create_dir,
+            rename_path,
+            delete_path,
+            create_dryad_project,
+            run_dryad_script,
+            start_file_watcher,
             show_notification,
             open_in_external
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_list_dir() {
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("test.txt");
+        fs::write(&file_path, "hello").unwrap();
+
+        let entries = list_dir(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].name, "test.txt");
+        assert!(!entries[0].is_dir);
+    }
+
+    #[test]
+    fn test_read_write_file() {
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("io_test.txt").to_string_lossy().to_string();
+        
+        write_file(file_path.clone(), "birch rules".to_string()).unwrap();
+        let content = read_file(file_path).unwrap();
+        assert_eq!(content, "birch rules");
+    }
+
+    #[test]
+    fn test_create_delete_path() {
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("delete_me.txt").to_string_lossy().to_string();
+        
+        create_file(file_path.clone()).unwrap();
+        assert!(Path::new(&file_path).exists());
+        
+        delete_path(file_path.clone()).unwrap();
+        assert!(!Path::new(&file_path).exists());
+    }
 }
 

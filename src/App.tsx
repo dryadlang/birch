@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import "./App.css";
 import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
 import { ActivityBar } from "./components/ActivityBar";
 import { Sidebar, FileEntry } from "./components/Sidebar";
 import { TabBar, OpenTab } from "./components/TabBar";
@@ -12,6 +13,7 @@ import { SettingsPanel, Settings } from "./components/SettingsPanel";
 import { GitPanel } from "./components/GitPanel";
 import { SearchPanel } from "./components/SearchPanel";
 import { DebugPanel } from "./components/DebugPanel";
+import { ExtensionsPanel } from "./components/ExtensionsPanel";
 import { StartPage } from "./components/StartPage";
 import { NewProjectWizard } from "./components/NewProjectWizard";
 
@@ -114,46 +116,103 @@ function App() {
     }
   };
 
+  const refreshFiles = async () => {
+    if (workspacePath) {
+      const updated = await loadDirectory(workspacePath);
+      setFiles(updated);
+    }
+  };
+
   useEffect(() => {
     if (workspacePath) {
-      loadDirectory(workspacePath).then(setFiles);
+      refreshFiles();
     } else {
       setFiles([]);
     }
   }, [workspacePath]);
 
   const handleOpenFolder = async () => {
-    if (isTauri) {
-      try {
-        // Mock dialog for now or use tauri/api
-        // const selected = await open({ directory: true });
-        // if (selected) setWorkspacePath(selected as string);
-        const path = prompt('Enter folder path:', '/home/pedro/Documentos/birch');
-        if (path) setWorkspacePath(path);
-      } catch (err) {
-        console.error(err);
+    try {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title: 'Select Project Folder'
+      });
+      if (selected && typeof selected === 'string') {
+        setWorkspacePath(selected);
       }
-    } else {
-      setWorkspacePath('/mock/project');
+    } catch (err) {
+      console.error('Failed to open folder:', err);
     }
   };
 
   const handleOpenFile = async () => {
-    if (isTauri) {
-      const path = prompt('Enter file path:');
-      if (path) {
-        // Direct open file logic
-        const name = path.split('/').pop() || 'file';
-        handleFileSelect({ name, path, is_dir: false });
+    try {
+      const selected = await open({
+        multiple: false,
+        title: 'Open File'
+      });
+      if (selected && typeof selected === 'string') {
+        const name = selected.split(/[/\\]/).pop() || 'file';
+        handleFileSelect({ name, path: selected, is_dir: false });
       }
+    } catch (err) {
+      console.error('Failed to open file:', err);
     }
   };
 
-  const handleCreateProject = (name: string, location: string, template: string) => {
-    console.log('Creating project:', { name, location, template });
-    // Logic to create project structure
-    setWizardOpen(false);
-    setWorkspacePath(`${location}/${name}`);
+  const handleCreateProject = async (name: string, location: string, template: string) => {
+    try {
+      await invoke('create_dryad_project', { name, location, template });
+      setWizardOpen(false);
+      setWorkspacePath(`${location}/${name}`);
+    } catch (err) {
+      console.error('Failed to create project:', err);
+    }
+  };
+
+  const handleCreateFile = async (parentPath: string) => {
+    const name = prompt('File name:');
+    if (!name) return;
+    try {
+      await invoke('create_file', { path: `${parentPath}/${name}` });
+      refreshFiles();
+    } catch (err) {
+      console.error('Failed to create file:', err);
+    }
+  };
+
+  const handleCreateDir = async (parentPath: string) => {
+    const name = prompt('Folder name:');
+    if (!name) return;
+    try {
+      await invoke('create_dir', { path: `${parentPath}/${name}` });
+      refreshFiles();
+    } catch (err) {
+      console.error('Failed to create folder:', err);
+    }
+  };
+
+  const handleRename = async (path: string) => {
+    const newName = prompt('New name:');
+    if (!newName) return;
+    const parent = path.substring(0, path.lastIndexOf('/')) || path.substring(0, path.lastIndexOf('\\'));
+    try {
+      await invoke('rename_path', { oldPath: path, newPath: `${parent}/${newName}` });
+      refreshFiles();
+    } catch (err) {
+      console.error('Failed to rename:', err);
+    }
+  };
+
+  const handleDelete = async (path: string) => {
+    if (!confirm('Are you sure you want to delete this?')) return;
+    try {
+      await invoke('delete_path', { path });
+      refreshFiles();
+    } catch (err) {
+      console.error('Failed to delete:', err);
+    }
   };
 
   const handleFolderExpand = async (path: string) => {
@@ -192,15 +251,11 @@ function App() {
     }
 
     let content = '';
-    if (isTauri) {
-      try {
-        content = await invoke<string>('read_file', { path: file.path });
-      } catch (err) {
-        console.error('Failed to read file:', err);
-        content = '// Error reading file';
-      }
-    } else {
-      content = '// Mock content for ' + file.name;
+    try {
+      content = await invoke<string>('read_file', { path: file.path });
+    } catch (err) {
+      console.error('Failed to read file:', err);
+      content = '// Error reading file';
     }
 
     setOpenTabs(prev => [...prev, { path: file.path, name: file.name, isDirty: false }]);
@@ -235,11 +290,11 @@ function App() {
     setOpenTabs((prev) =>
       prev.map((t) => (t.path === activeTab ? { ...t, isDirty: true } : t))
     );
-    setUnsavedChanges(true); // Marcar alterações como não salvas
+    setUnsavedChanges(true);
   };
 
   const handleSave = useCallback(async () => {
-    if (!activeTab || !isTauri) return;
+    if (!activeTab) return;
 
     const content = fileContents.get(activeTab);
     if (content === undefined) return;
@@ -254,12 +309,13 @@ function App() {
       setOpenTabs(prev => prev.map(t =>
         t.path === activeTab ? { ...t, isDirty: false } : t
       ));
+      setUnsavedChanges(false);
     } catch (err) {
       console.error('Failed to save file:', err);
     }
-  }, [activeTab, fileContents, isTauri]);
+  }, [activeTab, fileContents]);
 
-  // Commands for Command Palette
+  // Commands
   const commands = [
     { id: 'save', label: 'Save File', icon: 'device-floppy', shortcut: 'Ctrl+S', action: handleSave, category: 'File' },
     { id: 'settings', label: 'Open Settings', icon: 'settings', shortcut: 'Ctrl+,', action: () => setSettingsOpen(true), category: 'Preferences' },
@@ -270,15 +326,6 @@ function App() {
     { id: 'search', label: 'Show Search', icon: 'search', action: () => setActiveView('search'), category: 'View' },
     { id: 'git', label: 'Show Source Control', icon: 'git-branch', action: () => setActiveView('git'), category: 'View' },
   ];
-
-  // Keyboard shortcuts 
-  /*
-  Ctrl+Shift+P - Open Command Palette
-  Ctrl+S - Save File
-  Ctrl+` - Toggle Terminal
-  Ctrl+B - Toggle Sidebar
-  Ctrl+, - Open Settings
-  */
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -313,27 +360,24 @@ function App() {
 
   const activeContent = activeTab ? fileContents.get(activeTab) || '' : '';
 
+  const handleRunScript = async () => {
+    if (!activeTab || !activeTab.endsWith('.dryad')) return;
+    try {
+      setPanelVisible(true);
+      const result = await invoke<string>('run_dryad_script', { path: activeTab });
+      console.log('Run result:', result);
+      // We could add a way to push output to the terminal panel here
+    } catch (err) {
+      console.error('Failed to run script:', err);
+    }
+  };
+
   const renderSidePanel = () => {
     if (!sidebarVisible) return null;
 
     switch (activeView) {
-      case 'explorer':
-        return (
-          <Sidebar
-            files={files}
-            activeFile={activeTab}
-            onFileSelect={handleFileSelect}
-            onFolderExpand={handleFolderExpand}
-            expandedFolders={expandedFolders}
-            width={sidebarWidth}
-            onWidthChange={(w) => {
-              setSidebarWidth(w);
-              localStorage.setItem('birch-sidebar-width', String(w));
-            }}
-          />
-        );
       case 'search':
-        return <SearchPanel isVisible={true} onFileSelect={(path) => handleFileSelect({ name: path.split('/').pop() || '', path, is_dir: false })} />;
+        return <SearchPanel isVisible={true} onFileSelect={(path) => handleFileSelect({ name: path.split(/[/\\]/).pop() || '', path, is_dir: false })} />;
       case 'git':
         return (
           <GitPanel
@@ -342,11 +386,13 @@ function App() {
             changes={gitChanges}
             onStageAll={() => console.log('Stage all')}
             onCommit={(msg) => console.log('Commit:', msg)}
-            onFileClick={(path) => handleFileSelect({ name: path.split('/').pop() || '', path, is_dir: false })}
+            onFileClick={(path) => handleFileSelect({ name: path.split(/[/\\]/).pop() || '', path, is_dir: false })}
           />
         );
       case 'debug':
         return <DebugPanel />;
+      case 'extensions':
+        return <ExtensionsPanel />;
       default:
         return null;
     }
@@ -358,16 +404,19 @@ function App() {
   const [unsavedChanges, setUnsavedChanges] = useState(false);
 
   useEffect(() => {
+    setAutoSaveEnabled(settings.autoSave);
+    setAutoSaveDelay(settings.autoSaveDelay);
+  }, [settings]);
+
+  useEffect(() => {
     if (autoSaveEnabled) {
       const interval = setInterval(() => {
         if (unsavedChanges) {
-          console.log('Auto-saving changes...');
           if (activeTab) {
             const content = fileContents.get(activeTab);
             if (content !== undefined) {
               invoke('write_file', { path: activeTab, content })
                 .then(() => {
-                  console.log('File auto-saved:', activeTab);
                   setUnsavedChanges(false);
                 })
                 .catch((err) => console.error('Auto-save failed:', err));
@@ -380,64 +429,82 @@ function App() {
     }
   }, [autoSaveEnabled, autoSaveDelay, unsavedChanges, activeTab, fileContents]);
 
-  const simulateChange = () => {
-    setUnsavedChanges(true);
-  };
-
   return (
     <div className="app-container" data-theme={settings.theme}>
+      <ActivityBar
+        activeView={activeView}
+        onViewChange={setActiveView}
+        onSettingsClick={() => setSettingsOpen(true)}
+      />
+
       <div className="main-content">
-        <ActivityBar
-          activeView={activeView}
-          onViewChange={setActiveView}
-          onSettingsClick={() => setSettingsOpen(true)}
-        />
-
-        {renderSidePanel()}
-
-        <div className="editor-container">
-          {!workspacePath && openTabs.length === 0 ? (
-            <StartPage
-              onOpenFolder={handleOpenFolder}
-              onOpenFile={handleOpenFile}
-              onCreateProject={() => setWizardOpen(true)}
-              recentProjects={recentProjects}
-            />
-          ) : (
-            <>
-              <TabBar
-                tabs={openTabs}
-                activeTab={activeTab}
-                onTabSelect={setActiveTab}
-                onTabClose={handleTabClose}
-                onTabReorder={setOpenTabs}
-              />
-              <EditorArea
+        {['explorer', 'search', 'git'].includes(activeView) ? (
+          <>
+            {activeView === 'explorer' ? (
+              <Sidebar
+                files={files}
                 activeFile={activeTab}
-                content={activeContent}
-                onChange={handleEditorChange}
-                settings={settings}
+                onFileSelect={handleFileSelect}
+                onFolderExpand={handleFolderExpand}
+                expandedFolders={expandedFolders}
+                width={sidebarWidth}
+                onWidthChange={(w) => {
+                  setSidebarWidth(w);
+                  localStorage.setItem('birch-sidebar-width', String(w));
+                }}
+                onRename={handleRename}
+                onDelete={handleDelete}
+                onNewFile={() => workspacePath && handleCreateFile(workspacePath)}
+                onNewFolder={() => workspacePath && handleCreateDir(workspacePath)}
+                workspacePath={workspacePath}
               />
-            </>
-          )}
-        </div>
+            ) : (
+              renderSidePanel()
+            )}
+            
+            <div className="editor-container">
+              {!workspacePath && openTabs.length === 0 ? (
+                <StartPage
+                  onOpenFolder={handleOpenFolder}
+                  onOpenFile={handleOpenFile}
+                  onCreateProject={() => setWizardOpen(true)}
+                  recentProjects={recentProjects}
+                />
+              ) : (
+                <>
+                  <TabBar
+                    tabs={openTabs}
+                    activeTab={activeTab}
+                    onTabSelect={setActiveTab}
+                    onTabClose={handleTabClose}
+                    onRun={handleRunScript}
+                  />
+                  <EditorArea
+                    activeFile={activeTab}
+                    content={activeContent}
+                    onChange={handleEditorChange}
+                    settings={settings}
+                  />
+                </>
+              )}
+              
+              <Panel
+                isVisible={panelVisible}
+                onToggle={() => setPanelVisible(v => !v)}
+                height={panelHeight}
+                onHeightChange={(h) => {
+                  setPanelHeight(h);
+                  localStorage.setItem('birch-panel-height', String(h));
+                }}
+              />
+            </div>
+          </>
+        ) : (
+          <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+            {renderSidePanel()}
+          </div>
+        )}
       </div>
-
-      <NewProjectWizard
-        isOpen={wizardOpen}
-        onClose={() => setWizardOpen(false)}
-        onCreate={handleCreateProject}
-      />
-
-      <Panel
-        isVisible={panelVisible}
-        onToggle={() => setPanelVisible(v => !v)}
-        height={panelHeight}
-        onHeightChange={(h) => {
-          setPanelHeight(h);
-          localStorage.setItem('birch-panel-height', String(h));
-        }}
-      />
 
       <StatusBar
         activeFile={activeTab}
@@ -446,36 +513,26 @@ function App() {
         isDirty={activeTab ? dirtyFiles.has(activeTab) : false}
       />
 
+      <NewProjectWizard
+        isOpen={wizardOpen}
+        onClose={() => setWizardOpen(false)}
+        onCreate={handleCreateProject}
+      />
+
       <CommandPalette
         isOpen={commandPaletteOpen}
         onClose={() => setCommandPaletteOpen(false)}
         commands={commands}
       />
 
-      <SettingsPanel
-        isOpen={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        settings={settings}
-        onSettingsChange={handleSettingsChange}
-      />
-
-      <button onClick={simulateChange}>Simulate Change</button>
-      <label>
-        Auto-Save Enabled:
-        <input
-          type="checkbox"
-          checked={autoSaveEnabled}
-          onChange={(e) => setAutoSaveEnabled(e.target.checked)}
+      {settingsOpen && (
+        <SettingsPanel
+          isOpen={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          settings={settings}
+          onSettingsChange={handleSettingsChange}
         />
-      </label>
-      <label>
-        Auto-Save Delay (ms):
-        <input
-          type="number"
-          value={autoSaveDelay}
-          onChange={(e) => setAutoSaveDelay(Number(e.target.value))}
-        />
-      </label>
+      )}
     </div>
   );
 }

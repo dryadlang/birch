@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import Editor, { OnMount } from '@monaco-editor/react';
+import { Icon } from './Icon';
 import '../App.css';
-import { invoke } from '@tauri-apps/api/core';
 
 interface EditorAreaProps {
     activeFile: string | null;
@@ -72,24 +72,17 @@ export const EditorArea: React.FC<EditorAreaProps> = ({ activeFile, content, onC
         });
     };
 
-    const runDryadScript = async () => {
-        if (activeFile) {
-            try {
-                const result = await invoke<string>('run_dryad_script', { path: activeFile });
-                console.log('Dryad Script Output:', result);
-            } catch (error) {
-                console.error('Failed to run Dryad script:', error);
-            }
-        }
-    };
-
     if (!activeFile) {
         return (
             <div className="editor-area empty">
                 <div className="empty-state">
-                    <span className="empty-icon">📝</span>
-                    <p>Select a file to start editing</p>
-                    <p className="empty-hint">Or use Ctrl+P to open a file</p>
+                    <Icon name="leaf" size={64} color="rgba(99, 102, 241, 0.4)" />
+                    <h2>Birch IDE</h2>
+                    <p>Select a file from the explorer to start coding in Dryad.</p>
+                    <div className="empty-actions">
+                        <div className="action-hint"><span>Ctrl</span> + <span>P</span> Quick Open</div>
+                        <div className="action-hint"><span>Ctrl</span> + <span>Shift</span> + <span>P</span> Command Palette</div>
+                    </div>
                 </div>
             </div>
         );
@@ -117,9 +110,9 @@ export const EditorArea: React.FC<EditorAreaProps> = ({ activeFile, content, onC
                     automaticLayout: true,
                     cursorBlinking: 'smooth',
                     smoothScrolling: true,
+                    padding: { top: 10, bottom: 10 }
                 }}
             />
-            <button onClick={runDryadScript}>Run Dryad Script</button>
         </div>
     );
 };

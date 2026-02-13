@@ -21,16 +21,8 @@ interface FileTreeItemProps {
     onContextMenu: (e: React.MouseEvent, entry: FileEntry) => void;
 }
 
-// Icon mapping for file extensions using SVG icons
 function getFileIconName(name: string, isDir: boolean, isExpanded?: boolean): string {
-    if (isDir) {
-        return isExpanded ? 'folder-open' : 'folder';
-    }
-
-    // ... (rest of icon logic remains same, just ensuring imports are cleaner if I could, but I'll leave the function logic as is and just replace imports/interfaces)
-    // Actually, I need to include the full function if I replace the whole file or matching block.
-    // To save tokens, I'll use multi-replace or just replace the top and the component.
-
+    if (isDir) return isExpanded ? 'folder-open' : 'folder';
     const ext = name.split('.').pop()?.toLowerCase();
     const iconMap: Record<string, string> = {
         'dryad': 'leaf',
@@ -40,45 +32,16 @@ function getFileIconName(name: string, isDir: boolean, isExpanded?: boolean): st
         'jsx': 'brand-javascript',
         'html': 'brand-html5',
         'css': 'brand-css3',
-        'scss': 'brand-sass',
         'json': 'braces',
         'toml': 'settings',
-        'yaml': 'file-settings',
-        'yml': 'file-settings',
-        'env': 'lock',
         'md': 'markdown',
-        'txt': 'file-text',
-        'pdf': 'file-type-pdf',
-        'png': 'photo',
-        'jpg': 'photo',
-        'jpeg': 'photo',
-        'svg': 'vector',
-        'gif': 'gif',
         'rs': 'file-code',
-        'gitignore': 'git-branch',
-        'lock': 'lock',
     };
-
-    const nameMap: Record<string, string> = {
-        'package.json': 'package',
-        'tsconfig.json': 'brand-typescript',
-        'vite.config.ts': 'flame',
-        'readme.md': 'book',
-        'license': 'license',
-        'dockerfile': 'brand-docker',
-        '.gitignore': 'git-branch',
-        'oak.toml': 'tree',
-        'oaklock.json': 'lock',
-    };
-
-    const lowerName = name.toLowerCase();
-    if (nameMap[lowerName]) return nameMap[lowerName];
     return iconMap[ext || ''] || 'file';
 }
 
 function getIconColor(name: string, isDir: boolean): string {
-    if (isDir) return '#dcb67a';
-
+    if (isDir) return '#818cf8';
     const ext = name.split('.').pop()?.toLowerCase();
     const colorMap: Record<string, string> = {
         'dryad': '#4ade80',
@@ -88,56 +51,39 @@ function getIconColor(name: string, isDir: boolean): string {
         'jsx': '#f7df1e',
         'html': '#e34f26',
         'css': '#264de4',
-        'scss': '#cf649a',
-        'json': '#cbcb41',
         'md': '#519aba',
         'rs': '#dea584',
-        'toml': '#9c4121',
-        'yaml': '#cb171e',
-        'yml': '#cb171e',
     };
-
     return colorMap[ext || ''] || 'var(--text-secondary)';
 }
 
-const FileTreeItem: React.FC<FileTreeItemProps> = ({
-    entry,
-    level,
-    activeFile,
-    expandedFolders,
-    onFileSelect,
-    onToggleFolder,
-    onContextMenu,
-}) => {
+const FileTreeItem: React.FC<FileTreeItemProps> = ({ entry, level, activeFile, expandedFolders, onFileSelect, onToggleFolder, onContextMenu }) => {
     const isExpanded = expandedFolders.has(entry.path);
     const iconName = getFileIconName(entry.name, entry.is_dir, isExpanded);
     const iconColor = getIconColor(entry.name, entry.is_dir);
 
     return (
-        <>
+        <div className="tree-node">
             <div
                 className={`tree-item ${activeFile === entry.path ? 'active' : ''}`}
-                style={{ paddingLeft: `${12 + level * 16}px` }}
+                style={{ paddingLeft: `${16 + level * 12}px` }}
                 onClick={() => entry.is_dir ? onToggleFolder(entry.path) : onFileSelect(entry)}
                 onContextMenu={(e) => onContextMenu(e, entry)}
             >
                 {entry.is_dir && (
-                    <span className="tree-chevron">
-                        <Icon name={isExpanded ? 'chevron-down' : 'chevron-right'} size={14} />
+                    <span className="tree-chevron" style={{ opacity: 0.6 }}>
+                        <Icon name={isExpanded ? 'chevron-down' : 'chevron-right'} size={12} />
                     </span>
                 )}
                 <span className="tree-file-icon" style={{ color: iconColor }}>
                     <Icon name={iconName} size={16} />
                 </span>
-                <span className="tree-name">{entry.name}</span>
+                <span className="tree-name" style={{ fontWeight: entry.is_dir ? 600 : 400 }}>{entry.name}</span>
             </div>
-            {entry.is_dir && isExpanded && (
-                <div className="tree-children">
-                    <div
-                        className="tree-indent-guide"
-                        style={{ left: `${20 + level * 16}px` }}
-                    />
-                    {entry.children?.map(child => (
+            {entry.is_dir && isExpanded && entry.children && (
+                <div className="tree-children" style={{ position: 'relative' }}>
+                    <div className="indent-guide" style={{ position: 'absolute', left: `${22 + level * 12}px`, top: 0, bottom: 0, width: '1px', background: 'var(--border-subtle)' }} />
+                    {entry.children.map(child => (
                         <FileTreeItem
                             key={child.path}
                             entry={child}
@@ -151,7 +97,7 @@ const FileTreeItem: React.FC<FileTreeItemProps> = ({
                     ))}
                 </div>
             )}
-        </>
+        </div>
     );
 };
 
@@ -163,57 +109,32 @@ interface SidebarProps {
     expandedFolders: Set<string>;
     width: number;
     onWidthChange: (width: number) => void;
+    onRename: (path: string) => void;
+    onDelete: (path: string) => void;
+    onNewFile: (parent: string) => void;
+    onNewFolder: (parent: string) => void;
+    workspacePath: string | null;
 }
 
-const MIN_WIDTH = 180;
-const MAX_WIDTH = 500;
-
-export const Sidebar: React.FC<SidebarProps> = ({
-    files,
-    activeFile,
-    onFileSelect,
-    onFolderExpand,
-    expandedFolders,
-    width,
-    onWidthChange,
+export const Sidebar: React.FC<SidebarProps> = ({ 
+    files, activeFile, onFileSelect, onFolderExpand, expandedFolders, 
+    width, onWidthChange, onRename, onDelete, onNewFile, onNewFolder,
+    workspacePath
 }) => {
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number; file: FileEntry } | null>(null);
-
-    const handleResize = (delta: number) => {
-        const newWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, width + delta));
-        onWidthChange(newWidth);
-    };
-
-    const handleContextMenu = (e: React.MouseEvent, file: FileEntry) => {
-        e.preventDefault();
-        setContextMenu({ x: e.clientX, y: e.clientY, file });
-    };
-
-    const handleNewFile = (path: string) => {
-        console.log('Creating new file at', path);
-        // Implement logic to create a new file in the specified path
-    };
-
-    const handleNewFolder = (path: string) => {
-        console.log('Creating new folder at', path);
-        // Implement logic to create a new folder in the specified path
-    };
-
-    const handleRename = (path: string) => {
-        console.log('Renaming file/folder at', path);
-        // Implement logic to rename the specified file or folder
-    };
-
-    const handleDelete = (path: string) => {
-        console.log('Deleting file/folder at', path);
-        // Implement logic to delete the specified file or folder
-    };
 
     return (
         <aside className="sidebar" style={{ width: `${width}px` }}>
             <div className="sidebar-header">
-                <Icon name="files" size={14} />
-                <span>EXPLORER</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Icon name="files" size={14} />
+                    <span>EXPLORER</span>
+                </div>
+                <div className="sidebar-actions" style={{ display: 'flex', gap: '8px' }}>
+                    <Icon name="plus" size={14} style={{ cursor: 'pointer' }} onClick={() => workspacePath && onNewFile(workspacePath)} />
+                    <Icon name="folder-plus" size={14} style={{ cursor: 'pointer' }} onClick={() => workspacePath && onNewFolder(workspacePath)} />
+                    <Icon name="refresh" size={14} style={{ cursor: 'pointer' }} />
+                </div>
             </div>
             <div className="sidebar-content">
                 {files.map(entry => (
@@ -225,11 +146,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         expandedFolders={expandedFolders}
                         onFileSelect={onFileSelect}
                         onToggleFolder={onFolderExpand}
-                        onContextMenu={handleContextMenu}
+                        onContextMenu={(e, file) => {
+                            e.preventDefault();
+                            setContextMenu({ x: e.clientX, y: e.clientY, file });
+                        }}
                     />
                 ))}
             </div>
-            <ResizeHandle direction="horizontal" onResize={handleResize} className="sidebar-resize" />
+            <ResizeHandle direction="horizontal" onResize={(delta) => onWidthChange(width + delta)} className="sidebar-resize" />
 
             {contextMenu && (
                 <FileContextMenu
@@ -237,14 +161,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     y={contextMenu.y}
                     file={contextMenu.file}
                     onClose={() => setContextMenu(null)}
-                    onRename={handleRename}
-                    onDelete={handleDelete}
-                    onNewFile={handleNewFile}
-                    onNewFolder={handleNewFolder}
-                    onCopyPath={(path) => {
-                        navigator.clipboard.writeText(path);
-                        console.log('Copied path', path);
-                    }}
+                    onRename={() => onRename(contextMenu.file.path)}
+                    onDelete={() => onDelete(contextMenu.file.path)}
+                    onNewFile={() => onNewFile(contextMenu.file.path)}
+                    onNewFolder={() => onNewFolder(contextMenu.file.path)}
+                    onCopyPath={() => navigator.clipboard.writeText(contextMenu.file.path)}
                 />
             )}
         </aside>

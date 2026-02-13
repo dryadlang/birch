@@ -19,19 +19,27 @@ const icons = [
 export const ActivityBar: React.FC<ActivityBarProps> = ({ activeView, onViewChange, onSettingsClick }) => {
     return (
         <div className="activity-bar">
-            {icons.map(item => (
-                <div
-                    key={item.id}
-                    className={`activity-icon ${activeView === item.id ? 'active' : ''}`}
-                    onClick={() => onViewChange(item.id)}
-                    title={item.label}
-                >
-                    <Icon name={item.icon} size={24} />
+            <div className="activity-top">
+                <div className="logo-container">
+                    {/* <Icon name="leaf" size={24} color="" />  */}
+                    <Icon name="leaf" size={24} color="green" />
+                    {/* Icon should be green */}
                 </div>
-            ))}
-            <div className="activity-spacer" />
-            <div className="activity-icon" title="Settings" onClick={onSettingsClick}>
-                <Icon name="settings" size={24} />
+                {icons.map(item => (
+                    <div
+                        key={item.id}
+                        className={`activity-icon ${activeView === item.id ? 'active' : ''}`}
+                        onClick={() => onViewChange(item.id)}
+                        title={item.label}
+                    >
+                        <Icon name={item.icon} size={20} />
+                    </div>
+                ))}
+            </div>
+            <div className="activity-bottom">
+                <div className="activity-icon" title="Settings" onClick={onSettingsClick}>
+                    <Icon name="settings" size={20} />
+                </div>
             </div>
         </div>
     );

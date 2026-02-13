@@ -14,10 +14,6 @@ interface TabContextMenuProps {
     tab: OpenTab;
     onClose: () => void;
     onCloseTab: (path: string) => void;
-    onCloseOthers: (path: string) => void;
-    onCloseAll: () => void;
-    onCloseRight: (path: string) => void;
-    onCopyPath: (path: string) => void;
 }
 
 const TabContextMenu: React.FC<TabContextMenuProps> = ({
@@ -26,10 +22,6 @@ const TabContextMenu: React.FC<TabContextMenuProps> = ({
     tab,
     onClose,
     onCloseTab,
-    onCloseOthers,
-    onCloseAll,
-    onCloseRight,
-    onCopyPath,
 }) => {
     const menuRef = useRef<HTMLDivElement>(null);
 
@@ -44,28 +36,10 @@ const TabContextMenu: React.FC<TabContextMenuProps> = ({
     }, [onClose]);
 
     return (
-        <div className="context-menu" ref={menuRef} style={{ left: x, top: y }}>
-            <div className="context-menu-item" onClick={() => { onCloseTab(tab.path); onClose(); }}>
+        <div className="context-menu" ref={menuRef} style={{ left: x, top: y, position: 'fixed', zIndex: 1000, background: 'var(--bg-popup)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '4px', boxShadow: 'var(--shadow-lg)', backdropFilter: 'var(--backdrop-blur)' }}>
+            <div className="context-menu-item" onClick={() => { onCloseTab(tab.path); onClose(); }} style={{ padding: '8px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', borderRadius: 'var(--radius-sm)' }}>
                 <Icon name="x" size={14} />
                 Close
-                <span className="context-menu-shortcut">Ctrl+W</span>
-            </div>
-            <div className="context-menu-item" onClick={() => { onCloseOthers(tab.path); onClose(); }}>
-                <Icon name="layout-columns" size={14} />
-                Close Others
-            </div>
-            <div className="context-menu-item" onClick={() => { onCloseRight(tab.path); onClose(); }}>
-                <Icon name="layout-align-left" size={14} />
-                Close to the Right
-            </div>
-            <div className="context-menu-item" onClick={() => { onCloseAll(); onClose(); }}>
-                <Icon name="square-x" size={14} />
-                Close All
-            </div>
-            <div className="context-menu-divider" />
-            <div className="context-menu-item" onClick={() => { onCopyPath(tab.path); onClose(); }}>
-                <Icon name="copy" size={14} />
-                Copy Path
             </div>
         </div>
     );
@@ -76,7 +50,7 @@ interface TabBarProps {
     activeTab: string | null;
     onTabSelect: (path: string) => void;
     onTabClose: (path: string) => void;
-    onTabReorder?: (tabs: OpenTab[]) => void;
+    onRun?: () => void;
 }
 
 export const TabBar: React.FC<TabBarProps> = ({
@@ -84,89 +58,19 @@ export const TabBar: React.FC<TabBarProps> = ({
     activeTab,
     onTabSelect,
     onTabClose,
-    onTabReorder
+    onRun
 }) => {
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number; tab: OpenTab } | null>(null);
-    const [draggedTab, setDraggedTab] = useState<string | null>(null);
-    const [dragOverTab, setDragOverTab] = useState<string | null>(null);
 
     if (tabs.length === 0) {
         return (
-            <div className="tab-bar empty">
-                <Icon name="files" size={16} style={{ marginRight: 8, opacity: 0.5 }} />
-                No files open
+            <div className="tab-bar empty" style={{ display: 'flex', alignItems: 'center', padding: '0 20px', color: 'var(--text-secondary)', fontSize: '12px' }}>
+                <Icon name="files" size={16} />
+                <span style={{ marginLeft: 8 }}>No files open</span>
             </div>
         );
     }
 
-    const handleContextMenu = (e: React.MouseEvent, tab: OpenTab) => {
-        e.preventDefault();
-        setContextMenu({ x: e.clientX, y: e.clientY, tab });
-    };
-
-    const handleCloseOthers = (path: string) => {
-        tabs.filter(t => t.path !== path).forEach(t => onTabClose(t.path));
-    };
-
-    const handleCloseAll = () => {
-        tabs.forEach(t => onTabClose(t.path));
-    };
-
-    const handleCloseRight = (path: string) => {
-        const idx = tabs.findIndex(t => t.path === path);
-        tabs.slice(idx + 1).forEach(t => onTabClose(t.path));
-    };
-
-    const handleCopyPath = (path: string) => {
-        navigator.clipboard.writeText(path);
-    };
-
-    // Drag and drop handlers
-    const handleDragStart = (e: React.DragEvent, path: string) => {
-        setDraggedTab(path);
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', path);
-    };
-
-    const handleDragOver = (e: React.DragEvent, path: string) => {
-        e.preventDefault();
-        if (draggedTab && draggedTab !== path) {
-            setDragOverTab(path);
-        }
-    };
-
-    const handleDragLeave = () => {
-        setDragOverTab(null);
-    };
-
-    const handleDrop = (e: React.DragEvent, targetPath: string) => {
-        e.preventDefault();
-        if (!draggedTab || draggedTab === targetPath) {
-            setDraggedTab(null);
-            setDragOverTab(null);
-            return;
-        }
-
-        const newTabs = [...tabs];
-        const draggedIdx = newTabs.findIndex(t => t.path === draggedTab);
-        const targetIdx = newTabs.findIndex(t => t.path === targetPath);
-
-        if (draggedIdx !== -1 && targetIdx !== -1) {
-            const [removed] = newTabs.splice(draggedIdx, 1);
-            newTabs.splice(targetIdx, 0, removed);
-            onTabReorder?.(newTabs);
-        }
-
-        setDraggedTab(null);
-        setDragOverTab(null);
-    };
-
-    const handleDragEnd = () => {
-        setDraggedTab(null);
-        setDragOverTab(null);
-    };
-
-    // Get file icon based on extension
     const getTabIcon = (name: string): string => {
         const ext = name.split('.').pop()?.toLowerCase();
         const iconMap: Record<string, string> = {
@@ -191,21 +95,16 @@ export const TabBar: React.FC<TabBarProps> = ({
                 {tabs.map(tab => (
                     <div
                         key={tab.path}
-                        className={`tab ${activeTab === tab.path ? 'active' : ''} ${draggedTab === tab.path ? 'dragging' : ''} ${dragOverTab === tab.path ? 'drag-over' : ''}`}
+                        className={`tab ${activeTab === tab.path ? 'active' : ''}`}
                         onClick={() => onTabSelect(tab.path)}
-                        onContextMenu={(e) => handleContextMenu(e, tab)}
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, tab.path)}
-                        onDragOver={(e) => handleDragOver(e, tab.path)}
-                        onDragLeave={handleDragLeave}
-                        onDrop={(e) => handleDrop(e, tab.path)}
-                        onDragEnd={handleDragEnd}
+                        onContextMenu={(e) => {
+                            e.preventDefault();
+                            setContextMenu({ x: e.clientX, y: e.clientY, tab });
+                        }}
                     >
-                        <Icon name={getTabIcon(tab.name)} size={14} style={{ marginRight: 6, opacity: 0.7 }} />
-                        <span className="tab-name">
-                            {tab.isDirty && <span className="dirty-dot">●</span>}
-                            {tab.name}
-                        </span>
+                        <Icon name={getTabIcon(tab.name)} size={16} />
+                        <span className="tab-name">{tab.name}</span>
+                        {tab.isDirty && <div className="dirty-dot" />}
                         <button
                             className="tab-close"
                             onClick={(e) => {
@@ -218,6 +117,13 @@ export const TabBar: React.FC<TabBarProps> = ({
                     </div>
                 ))}
             </div>
+            {activeTab?.endsWith('.dryad') && onRun && (
+                <div className="tab-actions" style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', zIndex: 10 }}>
+                    <button className="run-btn" onClick={onRun} title="Run Dryad Script" style={{ background: 'var(--accent-primary)', color: 'white', border: 'none', borderRadius: '4px', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: 'var(--shadow-md)' }}>
+                        <Icon name="player-play" size={18} />
+                    </button>
+                </div>
+            )}
             {contextMenu && (
                 <TabContextMenu
                     x={contextMenu.x}
@@ -225,10 +131,6 @@ export const TabBar: React.FC<TabBarProps> = ({
                     tab={contextMenu.tab}
                     onClose={() => setContextMenu(null)}
                     onCloseTab={onTabClose}
-                    onCloseOthers={handleCloseOthers}
-                    onCloseAll={handleCloseAll}
-                    onCloseRight={handleCloseRight}
-                    onCopyPath={handleCopyPath}
                 />
             )}
         </>

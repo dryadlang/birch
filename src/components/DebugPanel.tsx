@@ -3,7 +3,6 @@ import { Icon } from './Icon';
 import BreakpointsPanel from './debug/BreakpointsPanel';
 import VariablesPanel from './debug/VariablesPanel';
 import CallStackPanel from './debug/CallStackPanel';
-import { ProcessPanel } from './debug/ProcessPanel';
 import '../App.css';
 
 export const DebugPanel: React.FC = () => {
@@ -16,6 +15,7 @@ export const DebugPanel: React.FC = () => {
     return (
         <div className="debug-panel">
             <div className="debug-toolbar-main">
+                <h2 style={{ fontSize: '18px', fontWeight: '700', marginRight: '32px' }}>Run & Debug</h2>
                 <div className="debug-controls">
                     <button className="debug-control-btn success" title="Continue (F5)">
                         <Icon name="player-play" size={16} />
@@ -39,7 +39,7 @@ export const DebugPanel: React.FC = () => {
                 </div>
             </div>
 
-            <div className="debug-sidebar">
+            <div className="debug-sidebar-left">
                 <div className="debug-foldable">
                     <div className="debug-foldable-header" onClick={() => toggleSection('variables')}>
                         <Icon name={activeSection === 'variables' ? 'chevron-down' : 'chevron-right'} size={14} />
@@ -57,7 +57,28 @@ export const DebugPanel: React.FC = () => {
                         <div className="debug-empty">No watch expressions</div>
                     )}
                 </div>
+            </div>
 
+            <div className="debug-main-view">
+                <div className="debug-dashboard-card" style={{ background: 'var(--bg-sidebar)', padding: '32px', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-subtle)' }}>
+                    <h3 style={{ marginBottom: '16px' }}>Launch Configuration</h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: 'var(--bg-tab)', borderRadius: 'var(--radius-md)' }}>
+                            <span>Active Config</span>
+                            <span style={{ color: 'var(--accent-primary)', fontWeight: '600' }}>Dryad: Run script</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: 'var(--bg-tab)', borderRadius: 'var(--radius-md)' }}>
+                            <span>Program</span>
+                            <span style={{ color: 'var(--text-secondary)' }}>main.dryad</span>
+                        </div>
+                    </div>
+                    <button style={{ marginTop: '24px', width: '100%', padding: '12px', borderRadius: 'var(--radius-md)', background: 'var(--accent-primary)', color: 'white', border: 'none', fontWeight: '600', cursor: 'pointer' }}>
+                        Start Debugging
+                    </button>
+                </div>
+            </div>
+
+            <div className="debug-sidebar-right">
                 <div className="debug-foldable">
                     <div className="debug-foldable-header" onClick={() => toggleSection('callstack')}>
                         <Icon name={activeSection === 'callstack' ? 'chevron-down' : 'chevron-right'} size={14} />
@@ -72,14 +93,6 @@ export const DebugPanel: React.FC = () => {
                         <span>BREAKPOINTS</span>
                     </div>
                     {activeSection === 'breakpoints' && <BreakpointsPanel />}
-                </div>
-
-                <div className="debug-foldable">
-                    <div className="debug-foldable-header" onClick={() => toggleSection('process')}>
-                        <Icon name={activeSection === 'process' ? 'chevron-down' : 'chevron-right'} size={14} />
-                        <span>PROCESS ANALYZER</span>
-                    </div>
-                    {activeSection === 'process' && <ProcessPanel />}
                 </div>
             </div>
         </div>
